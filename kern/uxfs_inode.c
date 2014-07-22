@@ -51,8 +51,8 @@ void printInode(struct inode *inode, char *method){
 
 void printUip(struct uxfs_inode *, char *);
 void printUip(struct uxfs_inode *uip, char *method){
-  printk("method called from: %s\n", method);
-  printk("pointer: %p\n", uip);
+  printk("uip method called from: %s\n", method);
+  printk("uip pointer: %p\n", uip);
   printk("uip.i_mode: %u\n", uip->i_mode);
   printk("uip.i_nlink: %u\n", uip->i_nlink);
   printk("uip.i_atime: %u\n", uip->i_atime);
@@ -102,7 +102,7 @@ int uxfs_find_entry(struct inode *dip, char *name)
 
 	for (blk = 0; blk < uxi->uip.i_blocks; blk++) {
 	  testNumber = 0xbead000000000000 + (long)uxi->uip.i_addr[blk] + ((long)blk*0x1000000000l);
-	  for (;;){}
+	  //	  for (;;){}
 	  bh = sb_bread(sb, uxi->uip.i_addr[blk]);
 	  //  testNumber= 	  testMethod(testNumber, &bh, 0x100);		
 	  dirent = (struct uxfs_dirent *)bh->b_data;
@@ -139,6 +139,9 @@ struct inode *uxfs_iget(struct super_block *sb, unsigned long ino)
 	
 	method = "uxfs_iget before new check"; //debugging
 	printInode(inode,method); //debugging
+
+	if(inode->i_private)
+	  printUip(inode->i_private,method);
 	if (!inode)
 		return ERR_PTR(-ENOMEM);
 	printk("abount to check I_NEW\n");
@@ -163,6 +166,7 @@ struct inode *uxfs_iget(struct super_block *sb, unsigned long ino)
 	}
 
 	di = (struct uxfs_inode *)(bh->b_data);
+	printUip(di, "uxfs_iget, just read in from bh");
 	inode->i_mode = di->i_mode;
 	if (di->i_mode & S_IFDIR) {
 		inode->i_mode |= S_IFDIR;
@@ -183,10 +187,19 @@ struct inode *uxfs_iget(struct super_block *sb, unsigned long ino)
 	inode->i_atime.tv_sec = di->i_atime;
 	inode->i_mtime.tv_sec = di->i_mtime;
 	inode->i_ctime.tv_sec = di->i_ctime;
+
+	//testing the container
+	inode->i_private = uxfs_i(inode);
+
+	printInode(inode, "uxfs_iget");
+	printUip(di, "uxfs_iget, di");
+	if(inode->i_private)
+	  printUip(inode->i_private, "uxfs_iget, i_private");
+	//	for(;;){}
 	memcpy(inode->i_private, di, sizeof(struct uxfs_inode));
 	//testing!!!!! if the other thing doesnt work
 	//	memcpy(uxfs_i(inode), di, sizeof(struct uxfs_inode));
-
+	printUip(inode->i_private, "uxfs_iget, i_private after memcpy");
 	brelse(bh);
 
 	unlock_new_inode(inode);
