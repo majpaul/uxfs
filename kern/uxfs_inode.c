@@ -18,6 +18,63 @@ MODULE_AUTHOR
 MODULE_DESCRIPTION("A primitive filesystem for Linux");
 MODULE_LICENSE("GPL");
 
+void printInode(struct inode*, char *);
+void printInode(struct inode *inode, char *method){
+  if(!inode){
+    printk("qqq !inode\n");
+    printk("qqq null inode in method %s", method);
+    for(;;){}
+    return;
+  }
+  printk("qqq method called from: %s\n", method);
+  printk("qqq pointer: %p\n", inode);
+  printk("qqq private pointer: %p\n", inode->i_private);
+  printk("qqq inode number: %lu\n", inode->i_ino);
+  printk("qqq access permissions: %u\n", inode->i_mode);
+  if(inode->i_mapping){
+    printk("qqq address mapping host inode ptr: %p\n",inode->i_mapping->host);
+    printk("qqq address mapping number of pages: %lu\n",inode->i_mapping->nrpages);
+    printk("qqq address mapp`ing writeback page offset: %lu\n",inode->i_mapping->writeback_index);
+  }
+  printk("qqq inode owner user id: %u\n",inode->i_uid);
+  printk("qqq inode owner group id: %u\n",inode->i_gid);
+  printk("qqq filesize (bytes): %lld\n",inode->i_size);
+  printk("qqq number of blocks: %lu\n",inode->i_blocks);
+  printk("qqq block size (bits) %u\n",inode->i_blkbits);
+  //  if(inode->i_atime)
+    printk("qqq last access time: %ld3\n",inode->i_atime.tv_sec);
+    //  if(inode->i_mtime)
+    printk("qqq last modified time: %ld\n",inode->i_mtime.tv_sec);
+    //  if(inode->i_ctime)
+    printk("qqq list changed time: %ld\n",inode->i_ctime.tv_sec);
+}
+
+void printUip(struct uxfs_inode *, char *);
+void printUip(struct uxfs_inode *uip, char *method){
+  printk("method called from: %s\n", method);
+  printk("pointer: %p\n", uip);
+  printk("uip.i_mode: %u\n", uip->i_mode);
+  printk("uip.i_nlink: %u\n", uip->i_nlink);
+  printk("uip.i_atime: %u\n", uip->i_atime);
+  printk("uip.i_mtime: %u\n", uip->i_mtime);
+  printk("uip.i_ctime: %u\n", uip->i_ctime);
+  printk("uip.i_uid: %u\n", uip->i_uid);
+  printk("uip.i_gid: %u\n", uip->i_gid);
+  printk("uip.i_size: %u\n", uip->i_size);
+  printk("uip.i_blocks: %u\n", uip->i_blocks);
+  printk("uip.i_addr[0]: %u\n", uip->i_addr[0]);
+}
+
+
+
+long testMethod(long,void *, long);
+long testMethod(long number, void *p, long b){
+  return number + b;
+}
+
+long *testPoinTer;
+long *testPoinTer2;
+
 /*
  * This function looks for "name" in the directory "dip". 
  * If found the inode number is returned.
@@ -25,26 +82,43 @@ MODULE_LICENSE("GPL");
 
 int uxfs_find_entry(struct inode *dip, char *name)
 {
+
+  
+        long testNumber = 0xbeef00000000;
 	struct uxfs_inode_info *uxi = uxfs_i(dip);
 	struct super_block *sb = dip->i_sb;
 	struct buffer_head *bh = NULL;
 	struct uxfs_dirent *dirent;
 	int i, blk = 0;
+	long testNumber2 = 0xbad0000000000000;  
+	testPoinTer = &testNumber;
+	testPoinTer2 = &testNumber2;
+	
+  printk("name %s\n", name);
+  printk("uxi->uip.i_blocks: %d\n", uxi->uip.i_blocks);
+  printk("uxfs_find_entry(vfs_inode: %p)\n", dip);
+	testNumber2 = testMethod(testNumber2, testPoinTer, (long) uxi->uip.i_blocks); 
+	printUip(&uxi->uip, "uxfs_find_entry: dip");
 
 	for (blk = 0; blk < uxi->uip.i_blocks; blk++) {
-		bh = sb_bread(sb, uxi->uip.i_addr[blk]);
-		dirent = (struct uxfs_dirent *)bh->b_data;
-		for (i = 0; i < UXFS_DIRS_PER_BLOCK; i++) {
-			if (strcmp(dirent->d_name, name) == 0) {
-				brelse(bh);
-				return dirent->d_ino;
-			}
-			dirent++;
-		}
+	  testNumber = 0xbead000000000000 + (long)uxi->uip.i_addr[blk] + ((long)blk*0x1000000000l);
+	  for (;;){}
+	  bh = sb_bread(sb, uxi->uip.i_addr[blk]);
+	  //  testNumber= 	  testMethod(testNumber, &bh, 0x100);		
+	  dirent = (struct uxfs_dirent *)bh->b_data;
+	  //testNumber=testMethod(testNumber, &dirent, 0x1);
+	  for (i = 0; i < UXFS_DIRS_PER_BLOCK; i++) {
+	    if (strcmp(dirent->d_name, name) == 0) {
+	      //  testNumber2=testMethod(testNumber2, &testNumber2, 0x1);
+	      brelse(bh);
+	      return dirent->d_ino;
+	    }
+	    dirent++;
+	  }
 	}
 	if (bh)
-		brelse(bh);
-
+	  brelse(bh);
+	
 	return 0;
 }
 
@@ -59,13 +133,18 @@ struct inode *uxfs_iget(struct super_block *sb, unsigned long ino)
 	struct uxfs_inode *di;
 	struct inode *inode;
 	int block;
+	char *method;
 
 	inode = iget_locked(sb, ino);
+	
+	method = "uxfs_iget before new check"; //debugging
+	printInode(inode,method); //debugging
 	if (!inode)
 		return ERR_PTR(-ENOMEM);
+	printk("abount to check I_NEW\n");
 	if (!(inode->i_state & I_NEW))
 		return inode;
-
+	printk("inode was I_NEW\n");
 	if (ino < UXFS_ROOT_INO || ino > UXFS_MAXFILES) {
 		printk(KERN_ERR "uxfs: Bad inode number %lu\n", ino);
 		return ERR_PTR(-EIO);
@@ -104,11 +183,14 @@ struct inode *uxfs_iget(struct super_block *sb, unsigned long ino)
 	inode->i_atime.tv_sec = di->i_atime;
 	inode->i_mtime.tv_sec = di->i_mtime;
 	inode->i_ctime.tv_sec = di->i_ctime;
-	memcpy(&inode->i_private, di, sizeof(struct uxfs_inode));
+	memcpy(inode->i_private, di, sizeof(struct uxfs_inode));
+	//testing!!!!! if the other thing doesnt work
+	//	memcpy(uxfs_i(inode), di, sizeof(struct uxfs_inode));
 
 	brelse(bh);
 
 	unlock_new_inode(inode);
+	printInode(inode, "uxfs_iget after new and getting set");
 	return inode;
 }
 
@@ -233,7 +315,12 @@ struct inode *uxfs_alloc_inode(struct super_block *sb)
 	struct uxfs_inode_info *ui;
 
 	ui = (struct uxfs_inode_info *) kmem_cache_alloc(uxfs_inode_cachep, GFP_KERNEL);
+	//set vfs_inode private
+	ui->vfs_inode.i_private = &ui;
 
+	printk("vfs_inode allocated at: %p\n" , &ui->vfs_inode);
+	printk("uxfs/vfs_inode initial i_blocks: %d, %lu\n", ui->uip.i_blocks , ui->vfs_inode.i_blocks ); 
+	printInode(&ui->vfs_inode, "uxfs_alloc_inode"); //debugging
 	return &ui->vfs_inode;
 }
 
@@ -290,6 +377,7 @@ int uxfs_fill_super(struct super_block *sb, void *data, int silent)
 	inode = uxfs_iget(sb, UXFS_ROOT_INO);
 	if (!inode)
 		return -ENOMEM;
+	printInode(inode, "uxfs_fill_super"); //debugging
 	sb->s_root = d_alloc_root(inode); //changed from d_make_root(inode) for kernel version 3.2
 	if (!sb->s_root) {
 		iput(inode);
